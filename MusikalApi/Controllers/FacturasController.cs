@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using MusikalApi.Attributes;
 using MusikalApi.Data;
 using MusikalApi.DTOs;
 using MusikalApi.Models;
@@ -74,6 +75,7 @@ public class FacturasController : ControllerBase
     /// [¡Desafío!] Si el stock es insuficiente, se cancela la operación informando qué modelo presenta falta de stock.
     /// </summary>
     [HttpPost]
+    [SimulatedAuthorize("Admin", "Vendedor")]
     public async Task<ActionResult<FacturaResponseDto>> CrearFactura([FromBody] CrearFacturaRequestDto request)
     {
         if (request.Items == null || !request.Items.Any())
@@ -192,6 +194,8 @@ public class FacturasController : ControllerBase
     /// </summary>
     /// <param name="id">ID de la factura a enviar.</param>
     [HttpPost("{id}/enviar-pasarela")]
+    [HttpPost("{id}/enviar")]
+    [SimulatedAuthorize("Admin", "Vendedor")]
     public async Task<ActionResult<RegistroPagoPasarelaResponse>> EnviarAFacturaPasarela(int id)
     {
         var factura = await _context.Facturas
@@ -216,12 +220,14 @@ public class FacturasController : ControllerBase
             descripcion
         );
 
-        if (respuestaPasarela.Exitoso)
+        if (!respuestaPasarela.Exitoso)
         {
-            factura.RegistradaEnPasarela = true;
-            factura.FechaRegistroPasarela = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            return StatusCode(StatusCodes.Status502BadGateway, respuestaPasarela);
         }
+
+        factura.RegistradaEnPasarela = true;
+        factura.FechaRegistroPasarela = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
 
         return Ok(respuestaPasarela);
     }
@@ -234,6 +240,7 @@ public class FacturasController : ControllerBase
     /// </summary>
     [HttpPost("reconciliar")]
     [HttpPost("/reconcile")]
+    [SimulatedAuthorize("Admin")]
     public async Task<ActionResult<ResultadoConciliacionDto>> ReconciliarPagos()
     {
         var facturasPendientes = await _context.Facturas

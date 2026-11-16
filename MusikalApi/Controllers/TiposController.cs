@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using MusikalApi.Attributes;
 using MusikalApi.Data;
 using MusikalApi.DTOs;
 using MusikalApi.Models;
@@ -60,9 +61,43 @@ public class TiposController : ControllerBase
     }
 
     /// <summary>
+    /// Obtiene todos los modelos asociados a un tipo de instrumento específico.
+    /// </summary>
+    [HttpGet("{id}/modelos")]
+    public async Task<ActionResult<IEnumerable<ModeloInstrumentoResponseDto>>> GetModelosPorTipo(int id)
+    {
+        var tipoExiste = await _context.TiposInstrumento.AnyAsync(t => t.Id == id);
+        if (!tipoExiste)
+        {
+            return NotFound(new { mensaje = $"No se encontró el tipo de instrumento con ID {id}." });
+        }
+
+        var modelos = await _context.Modelos
+            .Where(m => m.TipoInstrumentoId == id)
+            .Include(m => m.Marca)
+            .Include(m => m.TipoInstrumento)
+            .Select(m => new ModeloInstrumentoResponseDto
+            {
+                Id = m.Id,
+                Nombre = m.Nombre,
+                Descripcion = m.Descripcion,
+                MarcaId = m.MarcaId,
+                MarcaNombre = m.Marca != null ? m.Marca.Nombre : string.Empty,
+                TipoInstrumentoId = m.TipoInstrumentoId,
+                TipoInstrumentoNombre = m.TipoInstrumento != null ? m.TipoInstrumento.Nombre : string.Empty,
+                Precio = m.Precio,
+                Stock = m.Stock
+            })
+            .ToListAsync();
+
+        return Ok(modelos);
+    }
+
+    /// <summary>
     /// Registra un nuevo tipo de instrumento.
     /// </summary>
     [HttpPost]
+    [SimulatedAuthorize("Admin")]
     public async Task<ActionResult<TipoInstrumentoResponseDto>> CreateTipo([FromBody] CrearTipoInstrumentoDto dto)
     {
         if (await _context.TiposInstrumento.AnyAsync(t => t.Nombre.ToLower() == dto.Nombre.ToLower()))
@@ -92,6 +127,7 @@ public class TiposController : ControllerBase
     /// Actualiza los datos de un tipo de instrumento.
     /// </summary>
     [HttpPut("{id}")]
+    [SimulatedAuthorize("Admin")]
     public async Task<ActionResult<TipoInstrumentoResponseDto>> UpdateTipo(int id, [FromBody] ActualizarTipoInstrumentoDto dto)
     {
         var tipo = await _context.TiposInstrumento.Include(t => t.Modelos).FirstOrDefaultAsync(t => t.Id == id);
@@ -120,6 +156,7 @@ public class TiposController : ControllerBase
     /// Elimina un tipo de instrumento si no tiene modelos asociados.
     /// </summary>
     [HttpDelete("{id}")]
+    [SimulatedAuthorize("Admin")]
     public async Task<IActionResult> DeleteTipo(int id)
     {
         var tipo = await _context.TiposInstrumento

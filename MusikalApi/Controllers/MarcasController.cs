@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using MusikalApi.Attributes;
 using MusikalApi.Data;
 using MusikalApi.DTOs;
 using MusikalApi.Models;
@@ -62,9 +63,43 @@ public class MarcasController : ControllerBase
     }
 
     /// <summary>
+    /// Obtiene todos los modelos asociados a una marca específica.
+    /// </summary>
+    [HttpGet("{id}/modelos")]
+    public async Task<ActionResult<IEnumerable<ModeloInstrumentoResponseDto>>> GetModelosPorMarca(int id)
+    {
+        var marcaExiste = await _context.Marcas.AnyAsync(m => m.Id == id);
+        if (!marcaExiste)
+        {
+            return NotFound(new { mensaje = $"No se encontró la marca con ID {id}." });
+        }
+
+        var modelos = await _context.Modelos
+            .Where(m => m.MarcaId == id)
+            .Include(m => m.Marca)
+            .Include(m => m.TipoInstrumento)
+            .Select(m => new ModeloInstrumentoResponseDto
+            {
+                Id = m.Id,
+                Nombre = m.Nombre,
+                Descripcion = m.Descripcion,
+                MarcaId = m.MarcaId,
+                MarcaNombre = m.Marca != null ? m.Marca.Nombre : string.Empty,
+                TipoInstrumentoId = m.TipoInstrumentoId,
+                TipoInstrumentoNombre = m.TipoInstrumento != null ? m.TipoInstrumento.Nombre : string.Empty,
+                Precio = m.Precio,
+                Stock = m.Stock
+            })
+            .ToListAsync();
+
+        return Ok(modelos);
+    }
+
+    /// <summary>
     /// Registra una nueva marca.
     /// </summary>
     [HttpPost]
+    [SimulatedAuthorize("Admin")]
     public async Task<ActionResult<MarcaResponseDto>> CreateMarca([FromBody] CrearMarcaDto dto)
     {
         if (await _context.Marcas.AnyAsync(m => m.Nombre.ToLower() == dto.Nombre.ToLower()))
@@ -96,6 +131,7 @@ public class MarcasController : ControllerBase
     /// Actualiza los datos de una marca existente.
     /// </summary>
     [HttpPut("{id}")]
+    [SimulatedAuthorize("Admin")]
     public async Task<ActionResult<MarcaResponseDto>> UpdateMarca(int id, [FromBody] ActualizarMarcaDto dto)
     {
         var marca = await _context.Marcas.Include(m => m.Modelos).FirstOrDefaultAsync(m => m.Id == id);
@@ -127,6 +163,7 @@ public class MarcasController : ControllerBase
     /// Elimina una marca si no tiene modelos asociados.
     /// </summary>
     [HttpDelete("{id}")]
+    [SimulatedAuthorize("Admin")]
     public async Task<IActionResult> DeleteMarca(int id)
     {
         var marca = await _context.Marcas

@@ -10,9 +10,21 @@ var builder = WebApplication.CreateBuilder(args);
 // Configuración de la Base de Datos SQLite
 builder.Services.AddDbContext<MusikalDbContext>(options =>
 {
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+    var rawConnectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
                            ?? "Data Source=musikal.db";
-    options.UseSqlite(connectionString);
+
+    // Si la ruta del archivo SQLite es relativa, anclarla siempre a ContentRootPath (carpeta de la API)
+    if (rawConnectionString.Contains("Data Source=", StringComparison.OrdinalIgnoreCase))
+    {
+        var dbPath = rawConnectionString.Replace("Data Source=", "", StringComparison.OrdinalIgnoreCase).Trim();
+        if (!Path.IsPathRooted(dbPath))
+        {
+            var absoluteDbPath = Path.Combine(builder.Environment.ContentRootPath, dbPath);
+            rawConnectionString = $"Data Source={absoluteDbPath}";
+        }
+    }
+
+    options.UseSqlite(rawConnectionString);
 });
 
 // Configuración de Controladores y Serialización JSON
@@ -64,6 +76,23 @@ builder.Services.AddSwaggerGen(options =>
     {
         options.IncludeXmlComments(xmlPath);
     }
+
+    var bearerScheme = new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Autenticación simulada: ingrese 'Bearer {token}' (obtenido en /api/auth/login) o utilice el header 'X-User-Role: Admin|Vendedor'."
+    };
+
+    options.AddSecurityDefinition("Bearer", bearerScheme);
+
+    options.AddSecurityRequirement(doc => new OpenApiSecurityRequirement
+    {
+        { new OpenApiSecuritySchemeReference("Bearer"), new List<string>() }
+    });
 });
 
 var app = builder.Build();

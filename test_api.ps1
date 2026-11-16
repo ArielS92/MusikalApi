@@ -1,12 +1,22 @@
 $ErrorActionPreference = "Stop"
 
+$scriptDir = $PSScriptRoot
+if (-not $scriptDir) { $scriptDir = (Get-Location).Path }
+$musikalApiDir = Join-Path $scriptDir "MusikalApi"
+if (-not (Test-Path $musikalApiDir)) {
+    if (Test-Path (Join-Path $scriptDir "MusikalApi.csproj")) {
+        $musikalApiDir = $scriptDir
+    }
+}
+
 Write-Host "--- Iniciando servidor MusikalApi en segundo plano temporal ---"
-$logPath = "C:\Users\ariel\Desktop\Tp\server.log"
-$errPath = "C:\Users\ariel\Desktop\Tp\server_err.log"
+$logPath = Join-Path $scriptDir "server.log"
+$errPath = Join-Path $scriptDir "server_err.log"
 if (Test-Path $logPath) { Remove-Item $logPath -Force }
 if (Test-Path $errPath) { Remove-Item $errPath -Force }
 
-$process = Start-Process -FilePath "dotnet" -ArgumentList "run --no-build --urls http://127.0.0.1:5000" -WorkingDirectory "C:\Users\ariel\Desktop\Tp\MusikalApi" -RedirectStandardOutput $logPath -RedirectStandardError $errPath -PassThru
+$dllPath = Join-Path $musikalApiDir "bin\Debug\net10.0\MusikalApi.dll"
+$process = Start-Process -FilePath "dotnet" -ArgumentList "`"$dllPath`" --urls http://127.0.0.1:5000" -WorkingDirectory $musikalApiDir -RedirectStandardOutput $logPath -RedirectStandardError $errPath -PassThru
 
 try {
     Write-Host "Esperando a que el servidor inicialice en http://127.0.0.1:5000..."
@@ -18,6 +28,7 @@ try {
             $resp = Invoke-RestMethod -Uri "http://127.0.0.1:5000/api/marcas" -Method Get -TimeoutSec 2
             if ($resp) { $ready = $true }
         } catch {
+            Write-Host "Intento $retries fallo: $($_.Exception.Message)"
             $retries--
         }
     }
@@ -40,11 +51,26 @@ try {
     $modelos = Invoke-RestMethod -Uri "http://127.0.0.1:5000/api/modelos" -Method Get
     $modelos | Format-Table -Property Id, Nombre, MarcaNombre, TipoInstrumentoNombre, Precio, Stock | Out-String | Write-Host
 
-    Write-Host "`n>>> 4. Probando filtro de modelos por Tipo (Cuerda = 1):"
+    Write-Host "`n>>> 4. Probando filtro de modelos por Tipo (Cuerda = 1) vía query param y ruta dedicada:"
     $modelosCuerda = Invoke-RestMethod -Uri "http://127.0.0.1:5000/api/modelos?tipoId=1" -Method Get
     $modelosCuerda | Format-Table -Property Id, Nombre, MarcaNombre, Precio, Stock | Out-String | Write-Host
 
-    Write-Host "`n>>> 5. Probando [¡DESAFÍO!] Creación de Factura con Stock Insuficiente (debe retornar 409 Conflict):"
+    $modelosRutaTipo = Invoke-RestMethod -Uri "http://127.0.0.1:5000/api/modelos/tipo/1" -Method Get
+    Write-Host "Modelos obtenidos por ruta /api/modelos/tipo/1: $($modelosRutaTipo.Count)"
+
+    Write-Host "`n>>> 5. Probando filtro de modelos por Marca (Fender = 1):"
+    $modelosMarca = Invoke-RestMethod -Uri "http://127.0.0.1:5000/api/modelos/marca/1" -Method Get
+    $modelosMarca | Format-Table -Property Id, Nombre, MarcaNombre, Precio, Stock | Out-String | Write-Host
+
+    Write-Host "`n>>> 6. Probando [AUTENTICACIÓN SIMULADA] Login de Administrador:"
+    $bodyLogin = @{
+        usuario = "admin"
+        password = "admin123"
+    } | ConvertTo-Json
+    $authResp = Invoke-RestMethod -Uri "http://127.0.0.1:5000/api/auth/login" -Method Post -Body $bodyLogin -ContentType "application/json"
+    Write-Host "Login exitoso. Usuario: $($authResp.usuario), Rol: $($authResp.rol), Token: $($authResp.token)"
+
+    Write-Host "`n>>> 7. Probando [¡DESAFÍO!] Creación de Factura con Stock Insuficiente (debe retornar 409 Conflict):"
     $bodyExceso = @{
         clienteId = "CLI-999"
         clienteNombre = "Cliente Test"
@@ -64,7 +90,7 @@ try {
         Write-Host "Respuesta de error 409 recibida:`n$errJson"
     }
 
-    Write-Host "`n>>> 6. Creando Factura válida (Stratocaster x 2 unidades):"
+    Write-Host "`n>>> 8. Creando Factura válida (Stratocaster x 2 unidades):"
     $bodyValido = @{
         clienteId = "CLI-001"
         clienteNombre = "Carlos Santana"
@@ -80,31 +106,35 @@ try {
     Write-Host "Monto Total: $($facturaCreada.montoTotal)"
     Write-Host "Estado Inicial: $($facturaCreada.estadoPago)"
 
-    Write-Host "`n>>> 7. Verificando que el Stock se haya descontado:"
+    Write-Host "`n>>> 9. Verificando que el Stock se haya descontado automáticamente:"
     $modeloActualizado = Invoke-RestMethod -Uri "http://127.0.0.1:5000/api/modelos/1" -Method Get
-    Write-Host "Modelo: $($modeloActualizado.nombre) - Nuevo Stock: $($modeloActualizado.stock) (Original era 10)"
+    Write-Host "Modelo: $($modeloActualizado.nombre) - Nuevo Stock: $($modeloActualizado.stock)"
 
-    Write-Host "`n>>> 8. Enviando Factura a Pasarela PayLink (POST /api/facturas/$($facturaCreada.id)/enviar-pasarela):"
+    Write-Host "`n>>> 10. Enviando Factura a Pasarela PayLink (POST /api/facturas/$($facturaCreada.id)/enviar-pasarela):"
     $registroPasarela = Invoke-RestMethod -Uri "http://127.0.0.1:5000/api/facturas/$($facturaCreada.id)/enviar-pasarela" -Method Post
     Write-Host "Resultado envío pasarela:"
     $registroPasarela | Format-List | Out-String | Write-Host
 
-    Write-Host "`n>>> 9. Consultando estado inicial en el simulador PayLink (debe estar PENDIENTE):"
+    Write-Host "`n>>> 11. Consultando estado inicial en el simulador PayLink (debe estar PENDIENTE):"
     $pagoPaylink = Invoke-RestMethod -Uri "http://127.0.0.1:5000/api/paylink-mock/pagos/$($facturaCreada.codigoPagoUnico)" -Method Get
     Write-Host "Estado en PayLink: $($pagoPaylink.estado)"
 
-    Write-Host "`n>>> 10. Simulando pago del cliente en PayLink (POST /api/paylink-mock/pagos/.../pagar):"
+    Write-Host "`n>>> 12. Simulando pago del cliente en PayLink (POST /api/paylink-mock/pagos/.../pagar):"
     $simularPago = Invoke-RestMethod -Uri "http://127.0.0.1:5000/api/paylink-mock/pagos/$($facturaCreada.codigoPagoUnico)/pagar" -Method Post
     Write-Host "Pago simulado. Estado en PayLink ahora: $($simularPago.estado)"
 
-    Write-Host "`n>>> 11. Ejecutando Conciliación de Pagos (POST /reconcile):"
+    Write-Host "`n>>> 13. Ejecutando Conciliación de Pagos (POST /reconcile):"
     $reconciliacion = Invoke-RestMethod -Uri "http://127.0.0.1:5000/reconcile" -Method Post
     Write-Host "Resultado de Conciliación:"
     $reconciliacion | ConvertTo-Json -Depth 5 | Write-Host
 
-    Write-Host "`n>>> 12. Consultando Factura nuevamente para verificar estado 'Pagada':"
+    Write-Host "`n>>> 14. Consultando Factura nuevamente para verificar estado 'Pagada':"
     $facturaFinal = Invoke-RestMethod -Uri "http://127.0.0.1:5000/api/facturas/$($facturaCreada.id)" -Method Get
     Write-Host "Factura ID: $($facturaFinal.id) - Estado Final: $($facturaFinal.estadoPago) - Fecha Pago: $($facturaFinal.fechaPago)"
+
+    Write-Host "`n>>> 15. Consultando Configuración de Pasarela (GET /api/pasarela):"
+    $configPasarela = Invoke-RestMethod -Uri "http://127.0.0.1:5000/api/pasarela" -Method Get
+    Write-Host "Pasarela configurada: $($configPasarela.nombre) - URL: $($configPasarela.urlBase) - Activa: $($configPasarela.activa)"
 
     Write-Host "`n>>> TODOS LOS TESTS PASARON EXITOSAMENTE! <<<"
 }

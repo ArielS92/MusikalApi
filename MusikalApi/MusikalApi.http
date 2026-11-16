@@ -92,3 +92,24 @@ Accept: application/json
 ### 16. Pasarela - Consultar Configuración
 GET {{MusikalApi_HostAddress}}/api/pasarela
 Accept: application/json
+
+### 17. Autenticación Simulada - Login Admin
+POST {{MusikalApi_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "usuario": "admin",
+  "password": "admin123"
+}
+
+### 18. Autenticación Simulada - Usuarios y Roles disponibles
+GET {{MusikalApi_HostAddress}}/api/auth/usuarios
+Accept: application/json
+
+### 19. Catálogo - Modelos por Tipo (Ruta directa)
+GET {{MusikalApi_HostAddress}}/api/modelos/tipo/1
+Accept: application/json
+
+### 20. Catálogo - Modelos por Marca (Ruta directa)
+GET {{MusikalApi_HostAddress}}/api/modelos/marca/1
+Accept: application/json

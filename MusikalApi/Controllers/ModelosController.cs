@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using MusikalApi.Attributes;
 using MusikalApi.Data;
 using MusikalApi.DTOs;
 using MusikalApi.Models;
@@ -70,6 +71,24 @@ public class ModelosController : ControllerBase
     }
 
     /// <summary>
+    /// Lista los modelos de instrumentos filtrados por Tipo de Instrumento.
+    /// </summary>
+    [HttpGet("tipo/{tipoId}")]
+    public async Task<ActionResult<IEnumerable<ModeloInstrumentoResponseDto>>> GetModelosPorTipo(int tipoId)
+    {
+        return await GetModelos(marcaId: null, tipoId: tipoId, buscar: null);
+    }
+
+    /// <summary>
+    /// Lista los modelos de instrumentos filtrados por Marca.
+    /// </summary>
+    [HttpGet("marca/{marcaId}")]
+    public async Task<ActionResult<IEnumerable<ModeloInstrumentoResponseDto>>> GetModelosPorMarca(int marcaId)
+    {
+        return await GetModelos(marcaId: marcaId, tipoId: null, buscar: null);
+    }
+
+    /// <summary>
     /// Obtiene un modelo específico por su ID.
     /// </summary>
     [HttpGet("{id}")]
@@ -103,6 +122,7 @@ public class ModelosController : ControllerBase
     /// Registra un nuevo modelo de instrumento.
     /// </summary>
     [HttpPost]
+    [SimulatedAuthorize("Admin")]
     public async Task<ActionResult<ModeloInstrumentoResponseDto>> CreateModelo([FromBody] CrearModeloInstrumentoDto dto)
     {
         var marca = await _context.Marcas.FindAsync(dto.MarcaId);
@@ -150,6 +170,7 @@ public class ModelosController : ControllerBase
     /// Actualiza los datos de un modelo existente.
     /// </summary>
     [HttpPut("{id}")]
+    [SimulatedAuthorize("Admin")]
     public async Task<ActionResult<ModeloInstrumentoResponseDto>> UpdateModelo(int id, [FromBody] ActualizarModeloInstrumentoDto dto)
     {
         var modelo = await _context.Modelos.FindAsync(id);
@@ -197,6 +218,7 @@ public class ModelosController : ControllerBase
     /// Elimina un modelo de instrumento si no está incluido en facturas.
     /// </summary>
     [HttpDelete("{id}")]
+    [SimulatedAuthorize("Admin")]
     public async Task<IActionResult> DeleteModelo(int id)
     {
         var modelo = await _context.Modelos.FindAsync(id);
