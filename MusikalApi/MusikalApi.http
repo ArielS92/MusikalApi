@@ -1,0 +1,94 @@
+@MusikalApi_HostAddress = http://localhost:5000
+
+### 1. Marcas - Listar todas
+GET {{MusikalApi_HostAddress}}/api/marcas
+Accept: application/json
+
+### 2. Marcas - Obtener por ID
+GET {{MusikalApi_HostAddress}}/api/marcas/1
+Accept: application/json
+
+### 3. Marcas - Crear nueva marca
+POST {{MusikalApi_HostAddress}}/api/marcas
+Content-Type: application/json
+
+{
+  "nombre": "Ibanez",
+  "paisOrigen": "Japón"
+}
+
+### 4. Tipos - Listar todos
+GET {{MusikalApi_HostAddress}}/api/tipos
+Accept: application/json
+
+### 5. Modelos - Listar todos con datos relacionados
+GET {{MusikalApi_HostAddress}}/api/modelos
+Accept: application/json
+
+### 6. Modelos - Filtrar por Tipo de Instrumento (Cuerda = 1)
+GET {{MusikalApi_HostAddress}}/api/modelos?tipoId=1
+Accept: application/json
+
+### 7. Modelos - Filtrar por Marca (Fender = 1)
+GET {{MusikalApi_HostAddress}}/api/modelos?marcaId=1
+Accept: application/json
+
+### 8. Modelos - Buscar por texto ("Stratocaster")
+GET {{MusikalApi_HostAddress}}/api/modelos?buscar=Stratocaster
+Accept: application/json
+
+### 9. Facturas - [¡DESAFÍO!] Intentar crear factura con Stock Insuficiente (Error 409)
+POST {{MusikalApi_HostAddress}}/api/facturas
+Content-Type: application/json
+
+{
+  "clienteId": "CLI-001",
+  "clienteNombre": "Jimi Hendrix",
+  "items": [
+    {
+      "modeloInstrumentoId": 1,
+      "cantidad": 500
+    }
+  ]
+}
+
+### 10. Facturas - Crear Factura Válida (Descuenta stock automáticamente)
+POST {{MusikalApi_HostAddress}}/api/facturas
+Content-Type: application/json
+
+{
+  "clienteId": "CLI-002",
+  "clienteNombre": "Eric Clapton",
+  "items": [
+    {
+      "modeloInstrumentoId": 1,
+      "cantidad": 1
+    },
+    {
+      "modeloInstrumentoId": 7,
+      "cantidad": 2
+    }
+  ]
+}
+
+### 11. Facturas - Consultar Factura por ID (Reemplazar 1 por el ID generado)
+GET {{MusikalApi_HostAddress}}/api/facturas/1
+Accept: application/json
+
+### 12. Facturas - Enviar Factura a Pasarela PayLink
+POST {{MusikalApi_HostAddress}}/api/facturas/1/enviar-pasarela
+Accept: application/json
+
+### 13. PayLink Mock - Consultar estado en Pasarela (usar el CodigoPagoUnico de la factura)
+# GET {{MusikalApi_HostAddress}}/api/paylink-mock/pagos/<CODIGO_PAGO_UNICO>
+
+### 14. PayLink Mock - Simular Pago realizado por el cliente
+# POST {{MusikalApi_HostAddress}}/api/paylink-mock/pagos/<CODIGO_PAGO_UNICO>/pagar?metodoPago=Tarjeta%20Visa
+
+### 15. Facturas - Conciliación de Pagos (POST /reconcile o /api/facturas/reconciliar)
+POST {{MusikalApi_HostAddress}}/reconcile
+Accept: application/json
+
+### 16. Pasarela - Consultar Configuración
+GET {{MusikalApi_HostAddress}}/api/pasarela
+Accept: application/json
