@@ -72,7 +72,7 @@ public class FacturasController : ControllerBase
 
     /// <summary>
     /// Genera una nueva factura y descuenta automáticamente el stock disponible.
-    /// [¡Desafío!] Si el stock es insuficiente, se cancela la operación informando qué modelo presenta falta de stock.
+    /// Si el stock es insuficiente, se cancela la operación informando qué modelo presenta falta de stock.
     /// </summary>
     [HttpPost]
     [SimulatedAuthorize("Admin", "Vendedor")]
@@ -109,7 +109,7 @@ public class FacturasController : ControllerBase
                 });
             }
 
-            // [¡DESAFÍO CUMPLIDO!] Verificación estricta de stock disponible para cada modelo
+            // Verificación estricta de stock disponible para cada modelo
             var erroresStock = new List<DetalleStockFaltanteDto>();
 
             foreach (var item in itemsAgrupados)
@@ -190,7 +190,7 @@ public class FacturasController : ControllerBase
     }
 
     /// <summary>
-    /// Envía la factura a la pasarela de pagos externa ("PayLink") para registrar la obligación de pago.
+    /// Envía la factura a la pasarela de pagos externa para registrar la obligación de pago.
     /// </summary>
     /// <param name="id">ID de la factura a enviar.</param>
     [HttpPost("{id}/enviar-pasarela")]
